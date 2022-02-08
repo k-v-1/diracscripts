@@ -1,0 +1,158 @@
+#!/bin/bash
+#
+if [ $#  -lt 1 ] 
+then
+   echo "Number of parameters supplied insufficient"
+   echo "Syntax : $0 input-file [queue]"
+   return
+fi
+
+indir=`pwd`
+queue=$2
+inputfile=$1
+workdir=/temp0/`whoami`
+name=`echo ${inputfile%.gjf} | cut -c1-15`
+
+if [ "x" = "x$queue" ]; then
+  # queue=`qsum -u | grep -A1 "free" | tail -n1 | awk '{print $1;}'`
+  queue=`. /home/koen/.scrpts/qsmk2.sh | grep "Free" | awk '{print $2;}'`
+  echo $queue
+fi
+
+#check input on presence of %oldchk and %chk
+
+chkold=""
+if grep -Fq "%oldchk=" $inputfile; then
+if ! grep -Fq "%oldchk=/" $inputfile; then
+  chkold_prep=`grep "%oldchk=" $inputfile | cut -c9-`
+  chkold="$(echo -e "${chkold_prep}" | sed -e 's/[[:space:]]*$//')"
+  if [[ $chkold != *".chk" ]]; then
+    chkold="${chkold}.chk"
+  fi
+else
+chkold=`grep "%oldchk=" $inputfile | cut -c9-`
+fi
+fi
+
+chknew=""
+if grep -Fq "%chk=" $inputfile; then
+if ! grep -Fq "%chk=/" $inputfile; then
+  chknew_prep=`grep "%chk=" $inputfile | cut -c6-`
+  chknew="$(echo -e "${chknew_prep}" | sed -e 's/[[:space:]]*$//')"
+  if [[ $chknew != *".chk" ]]; then
+    chknew="${chknew}.chk"
+  fi
+else
+chknew=`grep "%chk=" $inputfile | cut -c6-`
+fi
+fi
+#check input on presence of .cube
+if grep -q "\.cube" $inputfile; then
+  cubcub=`grep "\.cube" $inputfile`
+fi
+
+of_flag=0
+if grep -iq "freq " $inputfile &&  grep -iq "opt" $inputfile; then # -i:ignore case
+  of_flag=1
+  # remove freq from first line
+  sed -i 's/freq //I' $inputfile
+  if [ "x" = "x$chknew" ]; then
+    chknew=${inputfile%.gjf}.chk
+  fi
+fi
+
+VERSION="A03"
+
+#Check the input file
+
+/usr/local/scripts/check_gaussian_input $inputfile $queue $workdir
+if [ $? -ne  0 ]
+then
+exit
+fi
+
+GAUSS_SCRDIR=$workdir
+cat <<END >$inputfile.job
+#!/bin/ksh
+if [ ! -d $GAUSS_SCRDIR ]
+then
+mkdir -p $GAUSS_SCRDIR
+fi
+cd $GAUSS_SCRDIR
+#GAUSS_SCRDIR=$GAUSS_SCRDIR
+export GAUSS_SCRDIR 
+export g16root=/usr/local/chem/g16$VERSION
+. \$g16root/bsd/g16.profile
+touch $indir/${inputfile%.gjf}.log
+rm -f $GAUSS_SCRDIR/*.rwf
+END
+
+if [ "x" != "x$chkold" ]; then
+  echo "cp $indir/$chkold ." >> $inputfile.job
+fi
+
+cat <<END >> $inputfile.job
+/usr/local/scripts/edit_for_nproc $indir/$inputfile > $workdir/$inputfile
+tr -d '\r' < $inputfile > $inputfile.tmp
+mv $inputfile.tmp $inputfile
+g16_FrontEnd $inputfile $indir/${inputfile%.gjf}.log
+rm -f $GAUSS_SCRDIR/Gau-*
+rm -f $GAUSS_SCRDIR/*.rwf
+END
+
+if [ "x" != "x$chkold" ]; then
+  echo "rsync -au $chkold $indir" >> $inputfile.job
+fi
+if [ "x" != "x$chknew" ]; then
+  echo "rsync -au $chknew $indir" >> $inputfile.job
+fi
+if [ "x" != "x$cubcub" ]; then
+  echo "cp $cubcub $indir" >> $inputfile.job
+fi
+
+#################################################
+#      Code only for splitting of opt-freq      #
+#################################################
+if [ $of_flag -eq 1 ]; then	#Outer fi-loop
+
+cat <<END >> $inputfile.job
+## move and copy opt-files to 000NAME
+if grep -q "Optimization completed." $indir/${inputfile%.gjf}.log; then		#Inner fi-loop
+mv $indir/$inputfile $indir/000$inputfile
+mv $indir/${inputfile%.gjf}.log $indir/000${inputfile%.gjf}.log
+cp $GAUSS_SCRDIR/$chknew $GAUSS_SCRDIR/000$chknew
+
+## Create new input based on old input, but opt-->freq; and starts from chk-file
+cat <<EOF >> $indir/$inputfile
+\`grep %mem $indir/000$inputfile\`
+%oldchk=000$chknew
+%chk=$chknew
+\`grep -i "#p" $indir/000$inputfile\`
+EOF
+sed -i 's/\S*\(guess\|Guess\|GUESS\)\S*//g;s/\(\s\)\s*/\1/g' $indir/$inputfile
+sed -i 's/\S*\(geom\|Geom\|GEOM\)\S*//g;s/\(\s\)\s*/\1/g' $indir/$inputfile
+sed -i 's/opt[a-zA-Z1-9(),=]*/freq guess=read geom=allcheck/g' $indir/$inputfile
+echo "" >> $indir/$inputfile	#adds empty line
+
+## Perform freq-calculation!
+cd $GAUSS_SCRDIR
+cp $indir/$inputfile .
+touch $indir/${inputfile%.gjf}.log
+rm -f $GAUSS_SCRDIR/*.rwf
+/usr/local/scripts/edit_for_nproc $indir/$inputfile > $workdir/$inputfile
+tr -d '\r' < $inputfile > $inputfile.tmp
+mv $inputfile.tmp $inputfile
+g16_FrontEnd $inputfile $indir/${inputfile%.gjf}.log
+rm -f $GAUSS_SCRDIR/Gau-*
+rm -f $GAUSS_SCRDIR/*.rwf
+
+rsync -au 000$chknew $indir
+rsync -au $chknew $indir
+
+fi	# First fi closes the "if opt completed" loop
+END
+	# Stop writing to .job-file
+fi	# Second fi closes the "if of-flag" loop
+
+qsub -q $queue -e $indir/${inputfile}-batch.log -j eo $inputfile.job -N $name
+#rm $inputfile.job
