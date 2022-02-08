@@ -1,3 +1,4 @@
+#Not used anymore; this was used to split opt and freq calculations, but makes things more complicated
 #!/bin/bash
 #
 if [ $#  -lt 1 ] 

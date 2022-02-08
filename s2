@@ -1,34 +1,50 @@
 #!/bin/bash
-###!/bin/bash
 #
-## version 2.1 (after v3.0)
-#todo, works in both bash and zsh?
+## version 4: (cleaned-up version)
+export LC_ALL=C
 if [ $#  -eq 0 ] 
 then
    echo "Number of parameters supplied insufficient"
    echo "Syntax : $0 input-file [queue-name]"
    echo "When no queue is given, Koen's qsmk2.sh script is used to get first free queue."
    echo "chk-file is automatically determined from input"
-#   return
    exit 0
 fi
+
+####
+#code snippet to find directory of this script.
+SOURCE=${BASH_SOURCE[0]}
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+#end
+####
+
 
 indir=`pwd`
 queue=$2
 inputfile=$1
-[[ -e $inputfile ]] || exit 0
+[[ ! -e $inputfile ]] && echo "File not found: $inputfile" && exit 1
 workdir=/temp0/`whoami`
-#chkfile=$3
-
 name=`echo ${inputfile%.gjf} | cut -c1-15`
+
 if [ "x" = "x$queue" ]; then                                              
-  # queue=`qsum -u | grep -A1 "free" | tail -n1 | awk '{print $1;}'`      
-  queue=`/home/koen/.scrpts/qsmk2.sh | grep "Free" | awk '{print $2}'`
+    #checking location of qsmk2.sh
+    qsmk_script="$DIR/qsmk2.sh"
+    if [[ ! -x $qsmk_script ]]; then
+        #backup if first one is not found in git-folder
+        qsmk2_script="/home/koen/.scrpts/qsmk2.sh"
+        [[ ! -x $qsmk_script ]] && echo "no qsmk-script found, no automatic node-selection" && exit 1
+    fi
+    queue=`$qsmk2_script | grep "Free" | awk '{print $2}'`
 fi                                                                        
 echo $queue                                                             
 
-#Koen's part
-#check input on presence of %chk
+#check input on presence of chks: TODO this can be written more readable/efficient
+#%oldchk
 chkold=""
 if grep -Fq "%oldchk=" $inputfile; then
 if ! grep -Fq "%oldchk=/" $inputfile; then
@@ -42,6 +58,7 @@ chkold=`grep "%oldchk=" $inputfile | cut -c9-`
 fi
 fi
 
+#%chk
 chknew=""
 if grep -Fq "%chk=" $inputfile; then
 if ! grep -Fq "%chk=/" $inputfile; then
@@ -55,7 +72,8 @@ chknew=`grep "%chk=" $inputfile |tail -n1| cut -c6-`
 fi
 fi
 #This part is for copying extra chk-files
-xchks=($(grep -E "^[a-Z0-9_.-]+[.]chk" $inputfile | tr "\n" " "))
+xchks=($(grep -E "[0-9A-z_.-]+[.]chk" $inputfile | tr "\n" " "))
+xchks=($(grep -iwE "[0-9A-z_.-]+[.]chk" $inputfile | sed -E 's/^.*=([0-9A-z_.-]+[.]chk)/\1/; s/[[:space:]]*$//' | sort | uniq | tr "\n" " "))
 #check input on presence of .cube
 if grep -q "\.cube" $inputfile; then
   cubcub=`grep "\.cube" $inputfile`
@@ -68,13 +86,7 @@ fi
 yesno () {
 # give string as $1
 while true; do
-    if [[ -n "$BASH_VERSION" ]]; then
-        read -p "$1" yn
-    elif [[ -n "$ZSH_VERSION" ]]; then
-        read "$1" 
-    else
-        echo "no bash or zsh?" && exit 0
-    fi
+    read -p "$1" yn
     case $yn in 
         [Yy]* ) break;;
         [Nn]* ) exit 0;;
@@ -91,46 +103,35 @@ if grep -iFq " tda" $inputfile; then
 if grep -iFq " freq" $inputfile; then
 if grep -iFq " opt" $inputfile; then
     yesno "Opt + Freq + tda (probably?) won't work for ESs, continue?"
-fi
-fi
-fi
+fi; fi; fi
 
-# set version
 
-#VERSION=${0#*subg16}
-#if [ x$VERSION = x ]
-#then
 VERSION="A03"
-#fi
 
 #Check the input file
-
-# $g98root/bsd/check_input $2 $1 $3
 /usr/local/scripts/check_gaussian_input $inputfile $queue $workdir
 if [ $? -ne  0 ]; then
 exit 1; fi
 
 GAUSS_SCRDIR=$workdir
 cat <<END >$inputfile.job
-#!/bin/ksh
+#!/bin/bash
 if [ ! -d $GAUSS_SCRDIR ]
 then
 mkdir -p $GAUSS_SCRDIR
 fi
 cd $GAUSS_SCRDIR
-GAUSS_SCRDIR=$GAUSS_SCRDIR
-export GAUSS_SCRDIR 
+
+export GAUSS_SCRDIR=$GAUSS_SCRDIR
 export g16root=/usr/local/chem/g16$VERSION
 . \$g16root/bsd/g16.profile
 touch $indir/${inputfile%.gjf}.log
 rm -f $GAUSS_SCRDIR/*.rwf
 END
 
-if [ "x" != "x$chkold" ]; then
-    echo "cp $indir/$chkold ." >> $inputfile.job; fi
-for chk in ${xchks[@]}; do
-    if [ "x" != "x$chk" ]; then
-        echo "cp $indir/$chk ." >> $inputfile.job; fi
+#[[ "x" != "x$chkold" ]] && echo "cp $indir/$chkold ." >> $inputfile.job
+for chk in ${xchks[@]}; do  # this already captures chkold
+    [[ "x" != "x$chk" ]] && [[ "x$chk" != "x$chknew" ]] && echo "cp $indir/$chk ." >> $inputfile.job
 done
 
 cat <<END >> $inputfile.job
@@ -142,12 +143,9 @@ rm -f $GAUSS_SCRDIR/Gau-*
 rm -f $GAUSS_SCRDIR/*.rwf
 END
 
-if [ "x" != "x$chkold" ]; then
-    echo "rsync -au $chkold $indir" >> $inputfile.job; fi
-if [ "x" != "x$chknew" ]; then
-    echo "rsync -au $chknew $indir" >> $inputfile.job; fi
-if [ "x" != "x$cubcub" ]; then
-    echo "cp $cubcub $indir" >> $inputfile.job; fi
+[[ "x" != "x$chkold" ]] && echo "rsync -au $chkold $indir" >> $inputfile.job
+[[ "x" != "x$chknew" ]] && echo "rsync -au $chknew $indir" >> $inputfile.job
+[[ "x" != "x$cubcub" ]] && echo "cp $cubcub $indir" >> $inputfile.job
 
 qsub -q $queue -e $indir/${inputfile}-batch.log -j eo $inputfile.job -N $name
 #rm $2.job
