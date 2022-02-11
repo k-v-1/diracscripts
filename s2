@@ -1,7 +1,8 @@
 #!/bin/bash
 #
-## version 4: (cleaned-up version)
+## version 4.1: (cleaned-up version)
 export LC_ALL=C
+checkchk=True
 if [ $#  -eq 0 ] 
 then
    echo "Number of parameters supplied insufficient"
@@ -29,7 +30,13 @@ queue=$2
 inputfile=$1
 [[ ! -e $inputfile ]] && echo "File not found: $inputfile" && exit 1
 workdir=/temp0/`whoami`
-name=`echo ${inputfile%.gjf} | cut -c1-15`
+
+name=${inputfile%.com}
+name=`echo ${name%.gjf} | cut -c1-15`
+inbase=${inputfile##*/}
+inbase=${inbase%.com}
+logname=${inputfile%.com}
+logname=${logname%.gjf}.log
 
 if [ "x" = "x$queue" ]; then                                              
     #checking location of qsmk2.sh
@@ -95,10 +102,10 @@ while true; do
 done
 }
 
-inbase=${inputfile##*/}
-if [[ "x$chknew" != "x" && ${inbase%.gjf} != ${chknew%.chk} ]]; then
+if [[ "checkchk" == "True" && "x$chknew" != "x" ]]; then
+if [[${inbase%.com} != ${chknew%.chk} || ${inbase%.gjf} != ${chknew%.chk} ]]; then
     yesno "filename not equal to chk-name! Do you wish to continue?"
-fi
+fi; fi
 if grep -iFq " tda" $inputfile; then
 if grep -iFq " freq" $inputfile; then
 if grep -iFq " opt" $inputfile; then
@@ -125,7 +132,7 @@ cd $GAUSS_SCRDIR
 export GAUSS_SCRDIR=$GAUSS_SCRDIR
 export g16root=/usr/local/chem/g16$VERSION
 . \$g16root/bsd/g16.profile
-touch $indir/${inputfile%.gjf}.log
+touch $indir/$logname
 rm -f $GAUSS_SCRDIR/*.rwf
 END
 
@@ -138,7 +145,7 @@ cat <<END >> $inputfile.job
 /usr/local/scripts/edit_for_nproc $indir/$inputfile > $workdir/$inputfile
 tr -d '\r' < $inputfile > $inputfile.tmp
 mv $inputfile.tmp $inputfile
-g16_FrontEnd $inputfile $indir/${inputfile%.gjf}.log
+g16_FrontEnd $inputfile $indir/$logname
 rm -f $GAUSS_SCRDIR/Gau-*
 rm -f $GAUSS_SCRDIR/*.rwf
 END
