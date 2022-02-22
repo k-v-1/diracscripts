@@ -38,11 +38,13 @@ head -1 \$PBS_NODEFILE > ${input%.inp}.nodes
 cp $indir/$input .
 for fl in ${xfiles[@]} ${hessfiles[@]}; do
     cp "$indir/\$fl" .; done
-cp $indir/${input%.inp}.gbw .
+[[ -s "$indir/${input%.inp}.gbw" ]] && cp $indir/${input%.inp}.gbw .
 
 \$ORCA/bin/orca $input > ${input%.inp}.out 2> $input.err
 [[ -s "$input.err" ]] || rm $input.err
-cp ${input%.inp}.out $input.err ${input%.inp}.gbw ${input%.inp}.hess $indir
+mkdir -p $indir/${input%.inp}
+cp ${input%.inp}.* $indir/${input%.inp}
+cp ${input%.inp}.out $indir
 EOF
 qsub -q $queue $input.job -N ${input%.inp}
 rm $input.job
