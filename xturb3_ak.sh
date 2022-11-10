@@ -1,7 +1,9 @@
 #/bin/bash
 #
+echo "New version!"
 indir=`pwd`
 [[ "$1" == "-ak" ]] && ak=True || ak=False
+[[ $ak == "True" ]] && shift
 
 if [[ $#  -lt 2 ]]; then
     if [[ $# -lt 1 ]] || grep -Fq "cosmo" $indir/control; then
@@ -34,8 +36,8 @@ if grep -Fq "cosmo" $indir/control; then
     fi
     sed -i "s/end/denconv - flag\n\$excitations\n  irrep=a  multiplicity=  $mult  nexc=  3  npre=  1  nstart=  1\n  exprop  states=all relaxed  operators=xdiplen,ydiplen,zdiplen\n  spectrum states=all  operators=xdiplen,ydiplen,zdiplen\n  tmexc istates=all fstates=all operators=xdiplen,ydiplen,zdiplen\n\$response\n  fop relaxed\n\$ricc2\n  adc(2)\n  maxiter = 100\n\$end/" control
     return
-else:
-    sed -i "s/end/denconv - flag\n\$excitations\n  irrep=a  multiplicity=  $mult  nexc=  3  npre=  1  nstart=  1n  spectrum states=all  operators=xdiplen,ydiplen,zdiplen\n\$response\n  tmexc istates=all fstates=all operators=xdiplen,ydiplen,zdiplen\n\$ricc2\n  adc(2)\n  maxiter = 100\n\$end/" control
+else
+    sed -i "s/end/denconv - flag\n\$excitations\n  irrep=a  multiplicity=  $mult  nexc=  3  npre=  1  nstart=  1\n spectrum states=all  operators=xdiplen,ydiplen,zdiplen\n  tmexc istates=all fstates=all operators=xdiplen,ydiplen,zdiplen\n\$ricc2\n  adc(2)\n  maxiter = 100\n\$end/" control
 
 fi
 

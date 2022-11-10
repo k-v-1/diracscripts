@@ -102,15 +102,15 @@ while true; do
 done
 }
 
-if [[ "checkchk" == "True" && "x$chknew" != "x" ]]; then
-if [[${inbase%.com} != ${chknew%.chk} || ${inbase%.gjf} != ${chknew%.chk} ]]; then
+if [[ "$checkchk" == "True" && "x$chknew" != "x" ]]; then
+if [[ "${inbase%.com}" != "${chknew%.chk}" || "${inbase%.gjf}" != "${chknew%.chk}" ]]; then
     yesno "filename not equal to chk-name! Do you wish to continue?"
 fi; fi
-if grep -iFq " tda" $inputfile; then
-if grep -iFq " freq" $inputfile; then
-if grep -iFq " opt" $inputfile; then
-    yesno "Opt + Freq + tda (probably?) won't work for ESs, continue?"
-fi; fi; fi
+#if grep -iFq " tda" $inputfile; then
+#if grep -iFq " freq" $inputfile; then
+#if grep -iFq " opt" $inputfile; then
+#    yesno "Opt + Freq + tda (probably?) won't work for ESs, continue?"
+#fi; fi; fi
 
 
 VERSION="A03"

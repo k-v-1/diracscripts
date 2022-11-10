@@ -1,32 +1,81 @@
 #!/bin/bash
 #
-##
+## s1 - version 2
+# more automatic input parsing: no trouble with -n and -f
+# Use with both Gaus and Orca!
 #better starter for s2
-if [[ $1 == "-h" || $1 == "--help" || $# == 0 ]]; then
-    echo "Give gjf-files as args"
-    echo "OR -n \$nodes -f \$files"
-    exit 0
-elif [[ $1 == "-n" ]]; then
-    [[ "$@" != *" -f "* ]] && echo "use -f \$files" && exit 1
-    nodes_free=()
-    shift
-    while [[ $1 != "-f" ]]; do
-        nodes_free+=( $1 )
-        shift
-    done
-    shift
-else
+
+prog=gaus
+[[ $# == 0 ]] && echo "Give gjf/com/inp-files [and nodes]" && exit 0
+while [[ $# -gt 0 ]]; do
+case $1 in
+    -h|--help)      echo "Give gjf/com/inp-files [and nodes]"; exit 0;;
+    -o|--orca)      prog=orca; shift;;
+    -d|--dal)       prog=dalton; shift; dalfile=$1
+                    shift;;
+    -m|--moldal)    prog=dalton2; shift; molfile=$1
+                    shift;;
+    [pg][0-9]|[pg][0-9][0-9]|[pg][0-9][0-9][0-9])
+                    nodes_free+=( $1 )
+                    shift;;
+    *.gjf|*.com|*.inp|*.mol|*.dal)
+                    totfiles+=( $1 )
+                    shift;;
+    *)              echo "$1 is neither input, nor node: skip"; shift;;
+esac
+done
+
+if [[ "x$nodes_free" == "x" ]]; then
     nodes_used=($(qstat -u koen | tail -n+6 | awk '{print $3}' | sort | uniq | wc -l))
-    [[ $nodes_used == 5 ]] && echo "no free nodes, use -n/-f" && exit 2
+    [[ $nodes_used == 5 ]] && echo "no free nodes, add nodes as args" && exit 2
     nodes_free=($(/home/koen/.scrpts/qsmk2.sh | grep Free | awk '{print $2" "$3" "$4" "$5" "$6}'))
 fi
+[[ "x$totfiles" == "x" ]] && echo "no input files selected?" && exit 1
 
-totfiles=( "$@" )
 nds=()
 #for ((i=0;i<=${#totfiles[@]};i++)); do
 for i in $(seq 0 $((${#totfiles[@]}-1))); do
     [[ ${#nds[@]} -lt ${#totfiles[@]} ]] && nds+=( "${nodes_free[@]}" )
-    /home/koen/.scrpts/s2 $1 ${nds[$i]}
-#    echo "$1 ${nds[$i]}"
-    shift
+    [[ "$prog" == "gaus" ]] && /home/koen/.scrpts/s2 ${totfiles[$i]} ${nds[$i]}
+    [[ "$prog" == "orca" ]] && /home/koen/.scrpts/run_orca.sh ${totfiles[$i]} ${nds[$i]}
+    [[ "$prog" == "dalton" ]] && /home/koen/.scrpts/dal.sh $dalfile ${totfiles[$i]} ${nds[$i]}
+    [[ "$prog" == "dalton2" ]] && /home/koen/.scrpts/dal.sh ${totfiles[$i]} $molfile ${nds[$i]}
+#    echo "${totfiles[$i]} ${nds[$i]}"
 done
+
+
+
+
+
+
+#version 1
+
+#exit 0
+#if [[ 1 -eq 2 ]]; then
+#if [[ $1 == "-h" || $1 == "--help" || $# == 0 ]]; then
+#    echo "Give gjf-files as args"
+#    echo "OR -n \$nodes -f \$files"
+#    exit 0
+#elif [[ $1 == "-n" ]]; then
+#    [[ "$@" != *" -f "* ]] && echo "use -f \$files" && exit 1
+#    nodes_free=()
+#    shift
+#    while [[ $1 != "-f" ]]; do
+#        nodes_free+=( $1 )
+#        shift
+#    done
+#    shift
+#else
+#    nodes_used=($(qstat -u koen | tail -n+6 | awk '{print $3}' | sort | uniq | wc -l))
+#    [[ $nodes_used == 5 ]] && echo "no free nodes, use -n/-f" && exit 2
+#    nodes_free=($(/home/koen/.scrpts/qsmk2.sh | grep Free | awk '{print $2" "$3" "$4" "$5" "$6}'))
+#fi
+#
+#totfiles=( "$@" )
+#nds=()
+#for i in $(seq 0 $((${#totfiles[@]}-1))); do
+#    [[ ${#nds[@]} -lt ${#totfiles[@]} ]] && nds+=( "${nodes_free[@]}" )
+#    /home/koen/.scrpts/s2 $1 ${nds[$i]}
+#    shift
+#done
+#fi

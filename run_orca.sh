@@ -6,7 +6,8 @@ tdir=/temp0/`whoami`/ORCA
 if [[ "x" == "x$queue" ]]; then
   queue=`/home/koen/.scrpts/qsmk2.sh | grep "Free" | awk '{print $2}'`
 fi                                                                        
-np=($(pbsnodes -aq "node${queue:1}" | grep "np = " | awk '{print $3}'))
+#np=($(pbsnodes -aq "node${queue:1}" | grep "np = " | awk '{print $3}'))  # gives sometimes wrong number of processes
+np=($(/home/hvs/python/yellowdog/yellowdog.py node get --node node${queue:1} | grep -oE '(n_processors\": [0-9]+|cores_per_processor\": [0-9]+)' | awk -v s=1 '{s*=$NF} END{print s}'))
 echo "$queue ($np)"
 #input parsing: xyz, hess, ...
 if grep -iq "%pal nprocs" $input; then
@@ -31,6 +32,7 @@ export LD_LIBRARY_PATH=\$MPI/lib:\$ORCA/lib
 
 [ ! -d $tdir ] && mkdir -p $tdir
 cd $tdir
+find . -type f -not -name \'$input*\' -delete
 rm ./*.{gbw,inp,out}
 
 head -1 \$PBS_NODEFILE > ${input%.inp}.nodes
@@ -43,8 +45,17 @@ for fl in ${xfiles[@]} ${hessfiles[@]}; do
 \$ORCA/bin/orca $input > ${input%.inp}.out 2> $input.err
 [[ -s "$input.err" ]] || rm $input.err
 mkdir -p $indir/${input%.inp}
+
+if [[ \`du -s $tdir | awk '{print \$1}'\` -lt 10000000 ]]; then
 cp ${input%.inp}.* $indir/${input%.inp}
 cp ${input%.inp}.out $indir
+else
+cp ${input%.inp}.out $indir
+cp $input.err $indir
+cp ${input%.inp}.gbw $indir/${input%.inp}
+echo "scratch still full; not copying everything to home" >> $input.err
+fi
+
 EOF
 qsub -q $queue $input.job -N ${input%.inp}
 rm $input.job

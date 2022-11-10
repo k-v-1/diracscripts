@@ -2,7 +2,7 @@
 #
 [[ $# -ne 0 ]] && charge=$1 || charge=0
 
-sturb
+. /usr/local/chem/turbomole7.1/vars.smp
 
 x2t *.xyz > coord
 printf '%b' "\n" "\n" "a coord\n" "*\n" "no\n" "b\n" "all def2-TZVP\n" "*\n" "eht\n" "\n" "$charge\n" "\n" "*\n" | define

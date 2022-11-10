@@ -51,5 +51,5 @@ cp * $indir
 EOF
 fi
 qsub -q $queue dinp.inp
-#rm -f dinp.inp
+rm -f dinp.inp
 

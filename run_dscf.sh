@@ -14,7 +14,7 @@ fi
 cat <<END > dsc.job
 . /usr/local/chem/turbomole7.1/vars.$smpser
 
-cd /temp0/koen
+cd /temp0/`whoami`
 cat > rmfile
 rm *
 
