@@ -103,7 +103,7 @@ done
 }
 
 if [[ "$checkchk" == "True" && "x$chknew" != "x" ]]; then
-if [[ "${inbase%.com}" != "${chknew%.chk}" || "${inbase%.gjf}" != "${chknew%.chk}" ]]; then
+if [[ "${logname%.log}" != "${chknew%.chk}" || "${inbase%.gjf}" != "${chknew%.chk}" ]]; then
     yesno "filename not equal to chk-name! Do you wish to continue?"
 fi; fi
 #if grep -iFq " tda" $inputfile; then
