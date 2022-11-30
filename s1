@@ -4,13 +4,17 @@
 # more automatic input parsing: no trouble with -n and -f
 # Use with both Gaus and Orca!
 #better starter for s2
+#now also fcclasses and qchem
 
-prog=gaus
-[[ $# == 0 ]] && echo "Give gjf/com/inp-files [and nodes]" && exit 0
+prog=gaus #default
+[[ $# == 0 ]] && printf "Give gjf/com/inp-files [and nodes]\n -h:help\n -o:orca\n -q:qchem\n -f:fcclasses\n -d:dalton-input\n -m:dalton-molfile\n" && exit 0
 while [[ $# -gt 0 ]]; do
 case $1 in
-    -h|--help)      echo "Give gjf/com/inp-files [and nodes]"; exit 0;;
+    -h|--help)      printf "Submitscript for many QC-packages on dirac. Give gjf/com/inp-files and optionally nodes\nDefaults to gaussian without flags.\nOther calcs {flag:prog:prefered input}:\n    -g:gaus: .gjf\n    -o:orca: .inp\n    -q:qchem: .com\n    -f:fcclasses: .inp\n    -d:dalton-input: .dal\n    -m:dalton-molfile: .mol [can only use 1 molfile/call]\nExamples:\ns1 gausinp.gjf gausinp2.gjf\ns1 -o orcainp1.inp orcainp2.inp orcainp3.inp orcainp4.inp g3 g4\ns1 -f g8 g9 g10 dir1/emi.inp dir2/kic.inp dir2/kic_ti.inp\n"; exit 0;;
+    -g|--gaus)      prog=gaus; shift;;
     -o|--orca)      prog=orca; shift;;
+    -q|--qch)       prog=qchem; shift;;
+    -f|--fcc)       prog=fcc; shift;;
     -d|--dal)       prog=dalton; shift; dalfile=$1
                     shift;;
     -m|--moldal)    prog=dalton2; shift; molfile=$1
@@ -25,10 +29,56 @@ case $1 in
 esac
 done
 
+function get_nodes {
+    #!/bin/bash
+    ## qsmk2.sh - copied from script on 29/11/2022 to work more independent
+    # gives available g-nodes, based on qsm and qst
+    # added p-functionality with gp-variable
+
+    #arg-parsing: -p: give p-nodes instead of g
+    #           arg2: total number of nodes to print, or 'a'=all available nodes
+    gp=g
+    [[ "$1" == "-p" ]] && gp=p && shift
+    [[ $# == 0 ]] && vnum=5 || vnum=$1
+    [[ "$vnum" == "a"* ]] && vnum=99
+
+    #check which nodes are free with qstat, should work across users due to 'whoami'
+    vstat=($(qstat -u `whoami`| tail -n+6))
+    vnode="gx"
+    nnode=2
+    nodelist=()
+    until [[ $vnode == "" ]]; do
+        vnode=${vstat[$nnode]}
+        nnode=$(($nnode+11))
+        if [[ ! " ${nodelist[@]} " == *" $vnode "* ]]; then
+          nodelist+=($vnode)
+        fi
+    done
+
+    #get list of free nodes, based on user availability due to -u flag?
+    vartot=($(qsum -${gp}u | grep -A $(($vnum+5)) 'free' | tail -n $(($vnum+5)) ))
+    #should maybe be increased to 6 or 7.. if for some reason an error occurs --> so far not necessary
+
+    # get the first elements with a g/p AND not part of nodelist or forbidden list (g1 and g2)
+    # loops stops when vartot is finished
+    freelist=()
+    i=0
+    until [[ $((${#freelist[@]} + ${#nodelist[@]})) -ge $vnum ]]; do
+        [[ "x${vartot[$i]}" == "x" ]] && break
+        [[ ${vartot[$i]} == "${gp}"* ]] && [[ ! " ${nodelist[@]} g1 g2 " == *" ${vartot[$i]} "* ]] && freelist+=(${vartot[$i]})
+        i=$(($i+1))
+    done
+
+    echo "Used: ${nodelist[@]}"
+    echo "Free: ${freelist[@]}"
+}
+
+
 if [[ "x$nodes_free" == "x" ]]; then
-    nodes_used=($(qstat -u koen | tail -n+6 | awk '{print $3}' | sort | uniq | wc -l))
+    nodes_used=($(qstat -u `whoami` | tail -n+6 | awk '{print $3}' | sort | uniq | wc -l))
     [[ $nodes_used == 5 ]] && echo "no free nodes, add nodes as args" && exit 2
-    nodes_free=($(/home/koen/.scrpts/qsmk2.sh | grep Free | awk '{print $2" "$3" "$4" "$5" "$6}'))
+#    nodes_free=($(/home/koen/.scrpts/qsmk2.sh | grep Free | awk '{print $2" "$3" "$4" "$5" "$6}'))
+    nodes_free=($(get_nodes | grep Free | awk '{print $2" "$3" "$4" "$5" "$6}'))
 fi
 [[ "x$totfiles" == "x" ]] && echo "no input files selected?" && exit 1
 
@@ -38,6 +88,8 @@ for i in $(seq 0 $((${#totfiles[@]}-1))); do
     [[ ${#nds[@]} -lt ${#totfiles[@]} ]] && nds+=( "${nodes_free[@]}" )
     [[ "$prog" == "gaus" ]] && /home/koen/.scrpts/s2 ${totfiles[$i]} ${nds[$i]}
     [[ "$prog" == "orca" ]] && /home/koen/.scrpts/run_orca.sh ${totfiles[$i]} ${nds[$i]}
+    [[ "$prog" == "fcc" ]] && /home/koen/.scrpts/run_fcc.sh ${totfiles[$i]} ${nds[$i]}
+    [[ "$prog" == "qchem" ]] && /home/koen/.scrpts/q_run.sh ${totfiles[$i]} ${nds[$i]}
     [[ "$prog" == "dalton" ]] && /home/koen/.scrpts/dal.sh $dalfile ${totfiles[$i]} ${nds[$i]}
     [[ "$prog" == "dalton2" ]] && /home/koen/.scrpts/dal.sh ${totfiles[$i]} $molfile ${nds[$i]}
 #    echo "${totfiles[$i]} ${nds[$i]}"

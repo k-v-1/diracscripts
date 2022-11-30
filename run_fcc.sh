@@ -1,9 +1,10 @@
 #!/bin/bash
-fcdir=/usr/local/chem/fcclasses-3.1.0
-indir=`pwd`
-input=$1
+fcdir=/usr/local/chem/fcclasses-3.1.0  # TODO: change this whenever fcc-classes is updated on Dirac
+input=`basename $1`
+indir=$PWD/`dirname $1`
 queue=$2
 tdir=/temp0/`whoami`/FCC
+# If queue is not given it's determined automatically by following script.
 if [[ "x" == "x$queue" ]]; then
   queue=`/home/koen/.scrpts/qsmk2.sh | grep "Free" | awk '{print $2}'`
 fi                                                                        
@@ -21,6 +22,7 @@ cd $tdir
 rm *.dat *.fcc *.out *.inp
 
 rsync $indir/{$input,*.fcc,*.inp,*.fchk} .
+#rsync $indir/* .  # TODO: uncomment this if you use files not ending on .fcc/.inp/...
 
 $fcdir/bin/fcclasses3 $input
 rsync * $indir --exclude="*.fchk"
