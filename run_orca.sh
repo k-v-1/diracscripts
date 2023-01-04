@@ -37,8 +37,8 @@ export LD_LIBRARY_PATH=\$MPI/lib:\$ORCA/lib
 
 [ ! -d $tdir ] && mkdir -p $tdir
 cd $tdir
-find . -type f -not -name \'$input*\' -delete
-rm ./*.{gbw,inp,out}
+[[ "$PWD" == "/temp0/"* ]] && find . -maxdepth 1 -type f -not -name \'$input*\' -delete
+[[ "$PWD" == "/temp0/"* ]] && rm ./*.{gbw,inp,out}
 
 head -1 \$PBS_NODEFILE > ${input%.inp}.nodes
 
