@@ -19,8 +19,10 @@ NN=(\$(cat \$PBS_NODEFILE|wc -l))
 export QC=/usr/local/chem/qchem-5.4
 export QCSCRATCH=/temp0/$name
 export QCAUX=\$QC/qcaux
-export PATH=\$QC/exe/:\$PATH
-export LD_LIBRARY_PATH=/usr/local/gcc-10.2.0/lib64/
+#export PATH=\$QC/exe/:\$PATH
+#export LD_LIBRARY_PATH=/usr/local/gcc-10.2.0/lib64/
+export PATH=\$PATH:\$QC/bin
+export LD_LIBRARY_PATH=/usr/local/gcc-10.3.0/lib64:/usr/local/OpenBLAS-0.3.20/lib
 . \$QC/bin/qchem.setup.sh
 . \$QC/bin/qchem.setup.sh.rel
 

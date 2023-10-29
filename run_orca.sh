@@ -37,8 +37,9 @@ export LD_LIBRARY_PATH=\$MPI/lib:\$ORCA/lib
 
 [ ! -d $tdir ] && mkdir -p $tdir
 cd $tdir
-[[ "$PWD" == "/temp0/"* ]] && find . -maxdepth 1 -type f -not -name \'$input*\' -delete
-[[ "$PWD" == "/temp0/"* ]] && rm ./*.{gbw,inp,out}
+rm /temp0/`whoami`/ORCA/*
+#[[ "$PWD" == "/temp0/"* ]] && find . -maxdepth 1 -type f -not -name \'$input*\' -delete
+#[[ "$PWD" == "/temp0/"* ]] && rm ./*.{gbw,inp,out}
 
 head -1 \$PBS_NODEFILE > ${input%.inp}.nodes
 
@@ -64,5 +65,4 @@ echo "scratch still full; not copying everything to home" >> $input.err
 fi
 
 EOF
-qsub -q $queue $input.job -N ${input%.inp}
-rm $input.job
+[[ ! "$queue" == "g999" ]] && qsub -q $queue $input.job -N ${input%.inp} && rm $input.job

@@ -13,6 +13,7 @@ case $1 in
     -h|--help)           printf "shows used and free nodes.\n-a/--all : show all free nodes, otherwise limited to 5\n-p       : show p-nodes instead of g-nodes\n"; exit 0;;
     a|-a|--all)          vnum=99; shift;;
     p|-p)                gp=p; shift;;
+    g|-g)                gp=g; shift;;
     ap|-ap|pa|-pa)       vnum=99;gp=p; shift;;
     [0-9]|[0-9][0-9])    vnum=$1; shift;;
     *)                   echo "$1 is neither -a/-p, nor number: exit"; exit 1;;
@@ -43,7 +44,7 @@ freelist=()
 i=0
 until [[ $((${#freelist[@]} + ${#nodelist[@]})) -ge $vnum ]]; do
     [[ "x${vartot[$i]}" == "x" ]] && break
-    [[ ${vartot[$i]} == "${gp}"* ]] && [[ ! " ${nodelist[@]} g1 g2 " == *" ${vartot[$i]} "* ]] && freelist+=(${vartot[$i]})
+    [[ ${vartot[$i]} == "${gp}"* ]] && [[ ! " ${nodelist[@]} g1 g2 g61 p78 p131 p132 p133 p134 p135 p136 p137 p138 p139 p140 p141 p142 p143 p144 p145 p146 " == *" ${vartot[$i]} "* ]] && freelist+=(${vartot[$i]})
     i=$(($i+1))
 done
 

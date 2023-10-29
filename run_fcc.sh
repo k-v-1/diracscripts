@@ -29,5 +29,5 @@ rsync * $indir --exclude="*.fchk"
 
 
 EOF
-qsub -q $queue $input.job -N ${input%.inp}
+[[ ! "$queue" == "g999" ]] && qsub -q $queue $input.job -N ${input%.inp}
 #rm $input.job
